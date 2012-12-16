@@ -4,8 +4,8 @@
 
 int main()
 {
-	KoskoNetwork Test (16, 4, .9);
-	QVector<double> XV;
+	KoskoNetwork Test (16, 4);
+	QVector<int> XV;
 	XV				<<0<<0<<0<<1<<0<<0<<0<<1<<0<<0<<0<<1<<0<<0<<0<<1
 					<<0<<0<<1<<1<<0<<0<<0<<1<<0<<0<<0<<1<<0<<0<<0<<1
 					<<0<<0<<1<<0<<0<<0<<1<<0<<0<<0<<1<<0<<0<<0<<1<<0
@@ -28,12 +28,13 @@ int main()
 					;
 	QVector<int> TV;
 	TV<<0<<0<<0<<0<<1<<1<<1<<1<<2<<2<<2<<2<<3<<3<<3<<3;
-	Test.learn(16,XV,TV);
-	Test.saveWeights("weights.txt");
-	Test.loadWeights("weights.txt");
-	QVector<double> XR;
+	Test.learnCharacteristic(16,XV,TV);
+	Test.saveWeights("weights.xml");
+	Test.loadWeights("weights.xml");
+	//KoskoNetwork TestXml ("weights.xml");
+	QVector<int> XR;
 	XR<<0<<1<<1<<1<<0<<1<<1<<0<<0<<1<<0<<0<<1<<1<<1<<0;
-	QVector<double> answer;
+	QVector<int> answer;
 	answer = Test.recognize(XR);
 	for (int i = 0; i < 4; i++) {
 		std::cout << answer.at(i) << " ";

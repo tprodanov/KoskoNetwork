@@ -1,19 +1,38 @@
 #include <fstream>
+#include <QtXml>
 #include "KoskoNetwork.h"
 
-KoskoNetwork::KoskoNetwork(const int countOfANeurons, const int countOfBNeurons, const double sensitivity) {
+KoskoNetwork::KoskoNetwork(const int countOfANeurons, const int countOfBNeurons) {
 	mCountOfANeurons = countOfANeurons;
 	mCountOfBNeurons = countOfBNeurons;
-	int i;
-	for (i = 0; i < mCountOfANeurons; i++) {
+	for (int i = 0; i < mCountOfANeurons; i++) {
 		Neuron newNeuron (mCountOfBNeurons);
 		mANeuronLayer << newNeuron;
 	}
 	mBNeuronLayer.resize(mCountOfBNeurons);
-	mSensitivity = sensitivity;
 }
 
-double KoskoNetwork::getBNeuronNewValue(const int BNeuronNumber) {
+KoskoNetwork::KoskoNetwork(const QString &filename) {
+	QDomDocument kn;
+	QFile knIn(filename);
+	if (knIn.open(QIODevice::ReadOnly)) {
+		if (kn.setContent(&knIn)) {
+			QDomElement network = kn.documentElement();
+			mCountOfANeurons = network.attribute("neuronsInALayer").toInt();
+			mCountOfBNeurons = network.attribute("neuronsInBLayer").toInt();
+			QDomElement neuron = network.firstChildElement("neuron");
+			for (int i = 0; i < mCountOfANeurons; i++) {
+				Neuron newNeuron (neuron, mCountOfBNeurons);
+				mANeuronLayer << newNeuron;
+				neuron = neuron.nextSiblingElement("neuron");
+			}
+		}
+	}
+	mBNeuronLayer.resize(mCountOfBNeurons);
+	knIn.close();
+}
+
+int KoskoNetwork::getBNeuronNewValue(const int BNeuronNumber) {
 	int sum = 0;
 	for (int i = 0; i < mCountOfANeurons; i++) {
 		sum += mANeuronLayer[i].mValue * mANeuronLayer[i].mWeights.at(BNeuronNumber);
@@ -21,7 +40,7 @@ double KoskoNetwork::getBNeuronNewValue(const int BNeuronNumber) {
 	return sum;
 }
 
-double KoskoNetwork::getANeuronNewValue(const int ANeuronNumber) {
+int KoskoNetwork::getANeuronNewValue(const int ANeuronNumber) {
 	int sum = 0;
 	for (int i = 0; i < mCountOfBNeurons; i++) {
 		sum += mBNeuronLayer.at(i) * mANeuronLayer[ANeuronNumber].mWeights.at(i);
@@ -62,10 +81,10 @@ void KoskoNetwork::fillBLayer() {
 	}
 }
 
-QVector<double> KoskoNetwork::recognize(const QVector<double> &input) {
+QVector<int> KoskoNetwork::recognize(const QVector<int> &input) {
 	QVector<int> prevALayer(mCountOfANeurons, 0), prevBLayer(mCountOfBNeurons, 0);
 	for (int i = 0; i < mCountOfANeurons; i++) {
-		mANeuronLayer[i].setValue(input.at(i), mSensitivity);
+		mANeuronLayer[i].setValue(input.at(i));
 	}
 	rememberALayer(prevALayer);
 	fillBLayer();
@@ -75,7 +94,7 @@ QVector<double> KoskoNetwork::recognize(const QVector<double> &input) {
 		rememberALayer(prevALayer);
 		fillBLayer();
 	}
-	QVector<double> resultVec(mCountOfBNeurons, 0);
+	QVector<int> resultVec(mCountOfBNeurons, 0);
 	for (int i = 0; i < mCountOfBNeurons; i++) {
 		if(mBNeuronLayer.at(i) == 1) {
 			resultVec[i] = 1;
@@ -84,11 +103,11 @@ QVector<double> KoskoNetwork::recognize(const QVector<double> &input) {
 	return resultVec;
 }
 
-QVector<double> KoskoNetwork::recognize(const QVector<double> &input, const int countOfIterations) {
+QVector<int> KoskoNetwork::recognize(const QVector<int> &input, const int countOfIterations) {
 	QVector<int> prevALayer(mCountOfANeurons, 0), prevBLayer(mCountOfBNeurons, 0);
 	int i;
 	for (i = 0; i < mCountOfANeurons; i++) {
-		mANeuronLayer[i].setValue(input.at(i), mSensitivity);
+		mANeuronLayer[i].setValue(input.at(i));
 	}
 	rememberALayer(prevALayer);
 	fillBLayer();
@@ -99,7 +118,7 @@ QVector<double> KoskoNetwork::recognize(const QVector<double> &input, const int 
 		rememberALayer(prevALayer);
 		fillBLayer();
 	}
-	QVector<double> resultVec(mCountOfBNeurons, 0);
+	QVector<int> resultVec(mCountOfBNeurons, 0);
 	for (i = 0; i < mCountOfBNeurons; i++) {
 		if(mBNeuronLayer.at(i) == 1) {
 			resultVec[i] = 1;
@@ -108,55 +127,53 @@ QVector<double> KoskoNetwork::recognize(const QVector<double> &input, const int 
 	return resultVec;
 }
 
-void KoskoNetwork::makeBipolarInput(QVector<int> &intVector
-									, const QVector<double> &doubleVector
+void KoskoNetwork::makeBipolarInput(QVector<int> &bipolarVector
+									, const QVector<int> &inputVector
 									, const int imageNumber
 									) {
 	for(int i = 0; i < mCountOfANeurons; i++) {
-		if (doubleVector.at(imageNumber * mCountOfANeurons + i) > mSensitivity) {
-			intVector [i] = 1;
+		if (inputVector.at(imageNumber * mCountOfANeurons + i) > 0) {
+			bipolarVector [i] = 1;
 		}
 		else {
-			intVector [i] = -1;
+			bipolarVector [i] = -1;
 		}
 	}
 }
 
-void KoskoNetwork::makeBipolarOutput(QVector<int> &intVector
-									 , const QVector<double> &doubleVector
+void KoskoNetwork::makeBipolarOutput(QVector<int> &bipolarVector
+									 , const QVector<int> &inputVector
 									 , const int imageNumber
-									 , const double outputSensitivity
 									 ) {
 	for(int i = 0; i < mCountOfBNeurons; i++) {
-		if (doubleVector.at(imageNumber * mCountOfBNeurons + i) > outputSensitivity) {
-			intVector [i] = 1;
+		if (inputVector.at(imageNumber * mCountOfBNeurons + i) > 0) {
+			bipolarVector [i] = 1;
 		}
 		else {
-			intVector [i] = -1;
+			bipolarVector [i] = -1;
 		}
 	}
 }
 
-void KoskoNetwork::makeBipolarOutput(QVector<int> &intVector
-									 , const QVector<int> &characteristicVector
-									 , const int imageNumber
-									 ) {
+void KoskoNetwork::makeBipolarCharacteristicOutput(QVector<int> &bipolarVector
+													, const QVector<int> &characteristicVector
+													, const int imageNumber
+													) {
 	for (int i = 0; i < mCountOfBNeurons; i++) {
-		intVector [i] = -1;
+		bipolarVector [i] = -1;
 	}
-	intVector[characteristicVector.at(imageNumber)] = 1;
+	bipolarVector[characteristicVector.at(imageNumber)] = 1;
 }
 
 void KoskoNetwork::learn(const int countOfImages
-						, const QVector<double> &inputVectors
-						, const QVector<double> &expectedResults
-						, const double outputSensitivity
+						, const QVector<int> &inputVectors
+						, const QVector<int> &expectedResults
 						) {
 	QVector<int> bipolarNowInputVector(mCountOfANeurons), bipolarNowExpectedResult(mCountOfBNeurons);
 	int i, j, k;
 	for (i = 0; i < countOfImages; i++) {
 		makeBipolarInput(bipolarNowInputVector, inputVectors, i);
-		makeBipolarOutput(bipolarNowExpectedResult, expectedResults, i, outputSensitivity);
+		makeBipolarOutput(bipolarNowExpectedResult, expectedResults, i);
 		for (j = 0; j < mCountOfANeurons; j++) {
 			for (k = 0; k < mCountOfBNeurons; k++) {
 				mANeuronLayer[j].changeWeight(k
@@ -167,15 +184,15 @@ void KoskoNetwork::learn(const int countOfImages
 	}
 }
 
-void KoskoNetwork::learn(const int countOfImages
-						, const QVector<double> &inputVectors
+void KoskoNetwork::learnCharacteristic(const int countOfImages
+						, const QVector<int> &inputVectors
 						, const QVector<int> &characteristicResultsVector
 						) {
 	QVector<int> bipolarNowInputVector(mCountOfANeurons), bipolarNowExpectedResult(mCountOfBNeurons);
 	int i, j, k;
 	for (i = 0; i < countOfImages; i++) {
 		makeBipolarInput(bipolarNowInputVector, inputVectors, i);
-		makeBipolarOutput(bipolarNowExpectedResult, characteristicResultsVector, i);
+		makeBipolarCharacteristicOutput(bipolarNowExpectedResult, characteristicResultsVector, i);
 		for (j = 0; j < mCountOfANeurons; j++) {
 			for (k = 0; k < mCountOfBNeurons; k++) {
 				mANeuronLayer[j].changeWeight(k
@@ -186,27 +203,38 @@ void KoskoNetwork::learn(const int countOfImages
 	}
 }
 
-void KoskoNetwork::saveWeights(const char *filename) {
-	std::fstream fout;
-	fout.open (filename, std::ios::out);
-	int i, j;
-	for (i = 0; i < mCountOfANeurons; i++) {
-		for (j = 0; j < mCountOfBNeurons; j++) {
-			fout << mANeuronLayer[i].mWeights.at(j) << std::endl;
-		}
+bool KoskoNetwork::saveWeights(const QString &filename) {
+	QDomDocument kn("KoskoNetwork");
+	QDomElement network = kn.createElement("KoskoNetwork");
+	network.setAttribute("neuronsInALayer", mCountOfANeurons);
+	network.setAttribute("neuronsInBLayer", mCountOfBNeurons);
+	kn.appendChild(network);
+	for (int i = 0; i < mCountOfANeurons; i++) {
+		network.appendChild(mANeuronLayer[i].save(kn, i + 1));
 	}
-	fout.close();
+	QFile saveKN(filename);
+	if(saveKN.open(QIODevice::WriteOnly)) {
+		QTextStream(&saveKN) << kn.toString();
+		saveKN.close();
+	}
+	else{
+		return true;
+	}
+	return false;
 }
 
-void KoskoNetwork::loadWeights(const char *filename) {
-	std::fstream fin;
-	fin.open (filename, std::ios::in);
-	int i, j, tmp;
-	for (i = 0; i < mCountOfANeurons; i++) {
-		for (j = 0; j < mCountOfBNeurons; j++) {
-			fin >> tmp;
-			mANeuronLayer[i].mWeights[j] = tmp;
+void KoskoNetwork::loadWeights (const QString &filename) {
+	QDomDocument kn;
+	QFile knIn(filename);
+	if (knIn.open(QIODevice::ReadOnly)) {
+		if (kn.setContent(&knIn)) {
+			QDomElement network = kn.documentElement();
+			QDomElement neuron = network.firstChildElement("neuron");
+			for (int i = 0; i < mCountOfANeurons; i++) {
+				mANeuronLayer[i].setWeights(neuron);
+				neuron = neuron.nextSiblingElement("neuron");
+			}
 		}
 	}
-	fin.close();
+	knIn.close();
 }

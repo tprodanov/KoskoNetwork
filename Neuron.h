@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtCore/QVector>
+#include <QtXml>
 #include "KoskoNetwork.h"
 
 class Neuron
@@ -10,8 +11,11 @@ public:
 	Neuron() {}
 private:
 	explicit Neuron(const int countOfWeights);
-	void setValue(const double neuronValue, const double sensitivity);
-	void changeWeight(const int to, const double deltaValue);
+	Neuron(const QDomElement &neuron, const int countOfWeights);
+	void setValue(const int neuronValue);
+	void changeWeight(const int to, const int deltaValue);
+	QDomElement save(QDomDocument &kn, int neuronNumber);
+	void setWeights(const QDomElement &neuron);
 	int mValue, mCountOfWeights;
 	QVector<int> mWeights;
 };
