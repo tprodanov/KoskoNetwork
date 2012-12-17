@@ -49,3 +49,9 @@ void Neuron::setWeights(const QDomElement &neuron) {
 		weight = weight.nextSibling().toElement();
 	}
 }
+
+void Neuron::eraseWeights() {
+	for (int i = 0; i < mCountOfWeights; i++) {
+		mWeights[i] = 0;
+	}
+}

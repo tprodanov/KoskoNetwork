@@ -14,6 +14,7 @@ private:
 	Neuron(const QDomElement &neuron, const int countOfWeights);
 	void setValue(const int neuronValue);
 	void changeWeight(const int to, const int deltaValue);
+	void eraseWeights();
 	QDomElement save(QDomDocument &kn, int neuronNumber);
 	void setWeights(const QDomElement &neuron);
 	int mValue, mCountOfWeights;
