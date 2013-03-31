@@ -16,39 +16,32 @@ KoskoNetwork::KoskoNetwork(const QString &filename
 			QDomElement network = kn.documentElement();
 			mCountOfANeurons = network.attribute("neuronsInALayer").toInt();
 			mCountOfBNeurons = network.attribute("neuronsInBLayer").toInt();
-			mCountOfEpochs = network.attribute("epochsNumber").toInt();
-			mWeights.resize(mCountOfANeurons * mCountOfBNeurons * mCountOfEpochs);
-			QDomElement epoch = network.firstChildElement("epoch");
-			QDomElement line;
-			int e, i;
-			for (e = 0; e < mCountOfEpochs; e++) {
-				line = epoch.firstChildElement("line");
-				for (i = 0; i < mCountOfBNeurons; i++) {
-					loadLine(line, e, i);
-					line = line.nextSiblingElement("line");
-				}
-				epoch = epoch.nextSiblingElement("epoch");
+			Neuron::mCountOfWeights = mCountOfBNeurons;
+			QDomElement neuron = network.firstChildElement("neuron");
+			for (int i = 0; i < mCountOfANeurons; i++) {
+				Neuron newNeuron (neuron);
+				mANeuronLayer << newNeuron;
+				neuron = neuron.nextSiblingElement("neuron");
 			}
 		}
 	}
 	mHeight = mCountOfANeurons / mWidth;
-	mANeuronLayer.fill(0, mCountOfANeurons);
 	mBNeuronLayer.resize(mCountOfBNeurons);
 	knIn.close();
 }
 
-int KoskoNetwork::getBNeuronNewValue(const int &BNeuronNum, const int &epoch) {
+int KoskoNetwork::getBNeuronNewValue(const int &BNeuronNum) {
 	int sum = 0;
 	for (int i = 0; i < mCountOfANeurons; i++) {
-		sum += mWeights[(epoch * mCountOfBNeurons + BNeuronNum) * mCountOfANeurons + i] * mANeuronLayer[i];
+		sum += mANeuronLayer[i].getValueTo(BNeuronNum);
 	}
 	return sum;
 }
 
-int KoskoNetwork::getANeuronNewValue(const int &ANeuronNum, const int &epoch) {
+int KoskoNetwork::getANeuronNewValue(const int &ANeuronNum) {
 	int sum = 0;
 	for (int i = 0; i < mCountOfBNeurons; i++) {
-		sum += mWeights[(epoch * mCountOfBNeurons + i) * mCountOfANeurons + ANeuronNum] * mBNeuronLayer[i];
+		sum += mBNeuronLayer.at(i) * mANeuronLayer[ANeuronNum].getWeight(i);
 	}
 	return sum;
 }
@@ -64,61 +57,89 @@ int KoskoNetwork::makeBipolar(const int &prevValue) {
 
 void KoskoNetwork::rememberALayer(QVector<int> &intVector) {
 	for (int i = 0; i < mCountOfANeurons; i++) {
-		intVector[i] = mANeuronLayer[i];
+		intVector[i] = mANeuronLayer[i].getValue();
 	}
 }
 
 void KoskoNetwork::rememberBLayer(QVector<int> &intVector) {
 	for (int i = 0; i < mCountOfBNeurons; i++) {
-		intVector[i] = mBNeuronLayer[i];
+		intVector[i] = mBNeuronLayer.at(i);
 	}
 }
 
-void KoskoNetwork::fillALayer(const int &epoch) {
+void KoskoNetwork::fillALayer() {
 	for (int i = 0; i < mCountOfANeurons; i++) {
-		mANeuronLayer[i] = makeBipolar(getANeuronNewValue(i, epoch));
+		mANeuronLayer[i].setValue(getANeuronNewValue(i));
 	}
 }
 
-void KoskoNetwork::fillBLayer(const int &epoch) {
+void KoskoNetwork::fillBLayer() {
 	for (int i = 0; i < mCountOfBNeurons; i++) {
-		mBNeuronLayer[i] = makeBipolar(getBNeuronNewValue(i, epoch));
+		mBNeuronLayer[i] = makeBipolar(getBNeuronNewValue(i));
 	}
 }
+
+/*QVector<int> KoskoNetwork::recognize(const QString &xmlFile) {
+	QVector<int> prevALayer(mCountOfANeurons, 0), prevBLayer(mCountOfBNeurons, 0);
+	int i, j;
+	QDomDocument picture;
+	QFile pictIn(xmlFile);
+	pictIn.open(QIODevice::ReadOnly);
+	picture.setContent(&pictIn);
+	QDomElement image = picture.firstChildElement("image");
+	int width = image.attribute("width").toInt();
+	int height = image.attribute("height").toInt();
+	QDomElement line = image.firstChildElement("line");
+	QString lineStr (width);
+	for (i = 0; i < height; i++) {
+		lineStr = line.attribute("value");
+		for (j = 0; j < width; j++) {
+			if (lineStr[j] == '1') {
+				mANeuronLayer[i * width + j].setValue(1);
+			}
+			else {
+				mANeuronLayer[i * width + j].setValue(-1);
+			}
+		}
+		line = line.nextSiblingElement("line");
+	}
+	pictIn.close();
+	rememberALayer(prevALayer);
+	fillBLayer();
+	while (prevBLayer != mBNeuronLayer) {
+		rememberBLayer(prevBLayer);
+		fillALayer();
+		rememberALayer(prevALayer);
+		fillBLayer();
+	}
+	QVector<int> resultVec(mCountOfBNeurons, 0);
+	for (int i = 0; i < mCountOfBNeurons; i++) {
+		if(mBNeuronLayer.at(i) == 1) {
+			resultVec[i] = 1;
+		}
+	}
+	return resultVec;
+}*/
 
 int KoskoNetwork::recognize(QString path) {
 	QVector<int> prevALayer(mCountOfANeurons, 0), prevBLayer(mCountOfBNeurons, 0);
-	int countOfGestures = std::pow(2, mCountOfBNeurons);
-	QVector<int> nowImg(mCountOfANeurons), resVector(countOfGestures, 0);
+	QVector<int> nowImg(mCountOfANeurons);
 	makePath(path, nowImg);
-	int i, e, result;
-	for (i = 0; i < mCountOfANeurons; i++) {
-		mANeuronLayer[i] = makeBipolar(nowImg[i]);
+	for (int i = 0; i < mCountOfANeurons; i++) {
+		mANeuronLayer[i].setValue(nowImg[i]);
 	}
 	rememberALayer(prevALayer);
-	for (e = 0; e < mCountOfEpochs; e++) {
-		mANeuronLayer = prevALayer;
-		fillBLayer(e);
-		while (prevBLayer != mBNeuronLayer) {
-			rememberBLayer(prevBLayer);
-			fillALayer(e);
-			fillBLayer(e);
-		}
-		result = 0;
-		for (i = 0; i < mCountOfBNeurons; i++) {
-			if (mBNeuronLayer[i] == 1) {
-				result += std::pow(2, mCountOfBNeurons - i - 1);
-			}
-		}
-		if (result >= e)
-			resVector[result - e]++;
+	fillBLayer();
+	while (prevBLayer != mBNeuronLayer) {
+		rememberBLayer(prevBLayer);
+		fillALayer();
+		rememberALayer(prevALayer);
+		fillBLayer();
 	}
-	int max = 0;
-	result = 0;
-	for (i = 0; i < countOfGestures; i++) {
-		if (resVector[i] > max) {
-			max = resVector[i];
-			result = i;
+	int result = 0;
+	for (int i = 0; i < mCountOfBNeurons; i++) {
+		if (mBNeuronLayer[i] == 1) {
+			result += std::pow(2, i);
 		}
 	}
 	return result + 1;
@@ -337,16 +358,4 @@ void KoskoNetwork::outp(const QVector<int> &nowImg)
 	}
 	ou << std::endl;
 	ou.close();
-}
-
-void KoskoNetwork::loadLine(const QDomElement &line, const int &epochNum, const int &lineNum)
-{
-	QString weightsStr = line.attribute("weights");
-	int lenOfNum, nowWeight;
-	for (int i = 0; i < mCountOfANeurons; i++) {
-		lenOfNum = weightsStr.indexOf(",", 0);
-		nowWeight = weightsStr.left(lenOfNum).toInt();
-		mWeights[(epochNum * mCountOfBNeurons + lineNum) * mCountOfANeurons + i] = nowWeight;
-		weightsStr = weightsStr.right(weightsStr.size() - lenOfNum - 2);
-	}
 }

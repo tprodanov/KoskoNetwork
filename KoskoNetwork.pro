@@ -8,9 +8,9 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp \
-    Neuron.cpp \
-    KoskoNetwork.cpp
+    KoskoNetwork.cpp \
+    KoskoStudy.cpp
 
 HEADERS += \
-    Neuron.h \
-    KoskoNetwork.h
+    KoskoNetwork.h \
+    KoskoStudy.h

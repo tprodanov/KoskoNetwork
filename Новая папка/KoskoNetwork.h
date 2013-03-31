@@ -1,8 +1,8 @@
 #pragma once
 
-#include <QtXml>
 #include <QtCore/QVector>
 #include <QtCore/QString>
+#include "Neuron.h"
 
 class Neuron;
 
@@ -17,14 +17,13 @@ public:
 private:
 	void outp(const QVector<int> &nowImg);
 
-	void loadLine(const QDomElement &line, const int &epochNum, const int &lineNum);
-	int getBNeuronNewValue(const int &BNeuronNum, const int &epoch);
-	int getANeuronNewValue(const int &ANeuronNum, const int &epoch);
+	int getBNeuronNewValue(const int &BNeuronNum);
+	int getANeuronNewValue(const int &ANeuronNum);
 	int makeBipolar(const int &prevValue);
 	void rememberALayer(QVector<int> &intVector);
 	void rememberBLayer(QVector<int> &intVector);
-	void fillALayer(const int &epoch);
-	void fillBLayer(const int &epoch);
+	void fillALayer();
+	void fillBLayer();
 	void makePath(QString path, QVector<int> &nowImg);
 	void makeLine(int x1
 				  , int y1
@@ -47,7 +46,8 @@ private:
 						 , int &rightCM
 						 , int &upperCM
 						 , int &bottomCM);
-	QVector<int> mANeuronLayer, mBNeuronLayer, mWeights;
-	int mCountOfANeurons, mCountOfBNeurons, mWidth, mHeight, mXCMPos, mYCMPos, mCountOfEpochs;
+	QVector<Neuron> mANeuronLayer;
+	QVector<int> mBNeuronLayer;
+	int mCountOfANeurons, mCountOfBNeurons, mWidth, mHeight, mXCMPos, mYCMPos;
 	QVector<QString> mGesturesNames;
 };
